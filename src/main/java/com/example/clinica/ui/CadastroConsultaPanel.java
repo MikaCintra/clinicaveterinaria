@@ -74,7 +74,7 @@ public class CadastroConsultaPanel extends JPanel {
 
         // Botão Salvar
         gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridy = 4;
         gbc.gridwidth = 2;
         gbc.weighty = 0;
         gbc.fill = GridBagConstraints.NONE;
