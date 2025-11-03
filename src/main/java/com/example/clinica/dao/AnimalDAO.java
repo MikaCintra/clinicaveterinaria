@@ -4,16 +4,21 @@ package com.example.clinica.dao;
 import com.example.clinica.database.ConnectionFactory;
 import com.example.clinica.model.Animal;
 import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AnimalDAO {
+    private static final Logger LOGGER = Logger.getLogger(AnimalDAO.class.getName());
     public void salvar(Animal animal) {
-        String sql = "INSERT INTO Animal (nome, especie) VALUES (?, ?)";
+        String sql = "INSERT INTO Animal (nome, especie, dono, telefone) VALUES (?, ?, ?, ?)";
         try (Connection conn = ConnectionFactory.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, animal.getNome());
             stmt.setString(2, animal.getEspecie());
+            stmt.setString(3, animal.getDono());
+            stmt.setString(4, animal.getTelefone());
             stmt.executeUpdate();
             try (ResultSet keys = stmt.getGeneratedKeys()) {
                 if (keys.next()) {
@@ -22,7 +27,7 @@ public class AnimalDAO {
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Erro ao salvar animal", e);
         }
     }
 
@@ -33,10 +38,16 @@ public class AnimalDAO {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                animais.add(new Animal(rs.getInt("id"), rs.getString("nome"), rs.getString("especie")));
+                animais.add(new Animal(
+                    rs.getInt("id"),
+                    rs.getString("nome"),
+                    rs.getString("especie"),
+                    rs.getString("dono"),
+                    rs.getString("telefone")
+                ));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Erro ao listar animais", e);
         }
         return animais;
     }
@@ -48,11 +59,17 @@ public class AnimalDAO {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return new Animal(rs.getInt("id"), rs.getString("nome"), rs.getString("especie"));
+                    return new Animal(
+                        rs.getInt("id"),
+                        rs.getString("nome"),
+                        rs.getString("especie"),
+                        rs.getString("dono"),
+                        rs.getString("telefone")
+                    );
                 }
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Erro ao buscar animal por id", e);
         }
         return null;
     }
@@ -65,7 +82,24 @@ public class AnimalDAO {
             int affected = stmt.executeUpdate();
             return affected > 0;
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Erro ao deletar animal", e);
+            return false;
+        }
+    }
+
+    public boolean atualizar(Animal animal) {
+        String sql = "UPDATE Animal SET nome = ?, especie = ?, dono = ?, telefone = ? WHERE id = ?";
+        try (Connection conn = ConnectionFactory.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, animal.getNome());
+            stmt.setString(2, animal.getEspecie());
+            stmt.setString(3, animal.getDono());
+            stmt.setString(4, animal.getTelefone());
+            stmt.setInt(5, animal.getId());
+            int affected = stmt.executeUpdate();
+            return affected > 0;
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Erro ao atualizar animal", e);
             return false;
         }
     }

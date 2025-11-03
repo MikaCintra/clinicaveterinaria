@@ -1,21 +1,26 @@
 package com.example.clinica.ui;
 
+import com.example.clinica.model.Animal;
 import com.example.clinica.model.Consulta;
+import com.example.clinica.service.AnimalService;
 import com.example.clinica.service.ConsultaService;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class ListagemConsultasPanel extends JPanel {
     private final ConsultaService consultaService;
+    private final AnimalService animalService;
     private final JTable table;
     private final DefaultTableModel tableModel;
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    public ListagemConsultasPanel(ConsultaService consultaService) {
+    public ListagemConsultasPanel(ConsultaService consultaService, AnimalService animalService) {
         this.consultaService = consultaService;
+        this.animalService = animalService;
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
@@ -47,11 +52,15 @@ public class ListagemConsultasPanel extends JPanel {
         JButton btnExcluir = new JButton("Excluir");
         btnExcluir.addActionListener(e -> excluirConsultaSelecionada());
         
+    JButton btnEditar = new JButton("Editar");
+    btnEditar.addActionListener(e -> editarConsultaSelecionada());
+        
         JButton btnAtualizar = new JButton("Atualizar");
         btnAtualizar.addActionListener(e -> refreshTable());
 
         buttonPanel.add(btnExibir);
         buttonPanel.add(btnExcluir);
+    buttonPanel.add(btnEditar);
         buttonPanel.add(btnAtualizar);
 
         add(buttonPanel, BorderLayout.SOUTH);
@@ -164,5 +173,117 @@ public class ListagemConsultasPanel extends JPanel {
             };
             worker.execute();
         }
+    }
+
+    private void editarConsultaSelecionada() {
+        int row = table.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this,
+                "Por favor, selecione uma consulta para editar",
+                "Seleção Necessária",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int id = (int) table.getValueAt(row, 0);
+
+        // Buscar consulta completa
+        Consulta consulta = consultaService.buscarPorId(id);
+        if (consulta == null) {
+            JOptionPane.showMessageDialog(this, "Consulta não encontrada.", "Erro", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // construir painel com seleção de animal, data e descrição
+        JComboBox<AnimalItem> combo = new JComboBox<>();
+        try {
+            for (Animal a : animalService.listarAnimais()) {
+                combo.addItem(new AnimalItem(a));
+            }
+        } catch (Exception ignored) {}
+        // selecionar animal atual
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            if (combo.getItemAt(i).animal.getId() == consulta.getIdAnimal()) {
+                combo.setSelectedIndex(i);
+                break;
+            }
+        }
+
+        JTextField dataField = new JTextField(String.format("%02d/%02d/%04d", consulta.getData().getDayOfMonth(), consulta.getData().getMonthValue(), consulta.getData().getYear()));
+        JTextArea descricaoArea = new JTextArea(consulta.getDescricao());
+        descricaoArea.setLineWrap(true);
+        descricaoArea.setWrapStyleWord(true);
+
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5,5,5,5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        gbc.gridx = 0; gbc.gridy = 0; panel.add(new JLabel("Animal:"), gbc);
+        gbc.gridx = 1; panel.add(combo, gbc);
+        gbc.gridx = 0; gbc.gridy = 1; panel.add(new JLabel("Data (dd/MM/yyyy):"), gbc);
+        gbc.gridx = 1; panel.add(dataField, gbc);
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2; gbc.fill = GridBagConstraints.BOTH; gbc.weighty = 1.0; panel.add(new JScrollPane(descricaoArea), gbc);
+
+        int option = JOptionPane.showConfirmDialog(this, panel, "Editar Consulta", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (option == JOptionPane.OK_OPTION) {
+            String novaDesc = descricaoArea.getText().trim();
+            if (novaDesc.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Descrição não pode ficar vazia.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            // parse data
+            LocalDate novaData;
+            try {
+                String[] parts = dataField.getText().trim().split("/\\s*");
+                if (parts.length != 3) throw new IllegalArgumentException("Formato de data inválido");
+                int d = Integer.parseInt(parts[0]);
+                int m = Integer.parseInt(parts[1]);
+                int y = Integer.parseInt(parts[2]);
+                novaData = LocalDate.of(y, m, d);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Data inválida. Use dd/MM/yyyy", "Erro", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            AnimalItem selected = (AnimalItem) combo.getSelectedItem();
+            if (selected == null) {
+                JOptionPane.showMessageDialog(this, "Selecione um animal.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Consulta updated = new Consulta(consulta.getId(), selected.animal.getId(), novaData, novaDesc);
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            SwingWorker<Boolean, Void> worker = new SwingWorker<Boolean, Void>() {
+                @Override
+                protected Boolean doInBackground() {
+                    return consultaService.atualizarConsulta(updated);
+                }
+
+                @Override
+                protected void done() {
+                    setCursor(Cursor.getDefaultCursor());
+                    try {
+                        boolean ok = get();
+                        if (ok) {
+                            JOptionPane.showMessageDialog(ListagemConsultasPanel.this, "Consulta atualizada com sucesso.", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                            refreshTable();
+                        } else {
+                            JOptionPane.showMessageDialog(ListagemConsultasPanel.this, "Não foi possível atualizar a consulta.", "Erro", JOptionPane.ERROR_MESSAGE);
+                        }
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(ListagemConsultasPanel.this, "Erro ao atualizar: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            };
+            worker.execute();
+        }
+    }
+
+    // helper item for animal combo
+    private static class AnimalItem {
+        final Animal animal;
+        AnimalItem(Animal a) { this.animal = a; }
+        @Override public String toString() { return String.format("%d - %s (%s)", animal.getId(), animal.getNome(), animal.getEspecie()); }
     }
 }

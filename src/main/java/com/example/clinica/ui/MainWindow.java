@@ -81,13 +81,20 @@ public class MainWindow extends JFrame {
         contentPanel = new JPanel(new CardLayout());
         add(contentPanel, BorderLayout.CENTER);
 
-        // Inicializar painéis de Animais
-        cadastroAnimalPanel = new CadastroAnimalPanel(animalService, this::showListagemAnimaisPanel);
+        // Inicializar painel de listagem de animais
         listagemAnimaisPanel = new ListagemAnimaisPanel(animalService);
-        
-        // Inicializar painéis de Consultas
+
+        // Inicializar painéis de Consultas primeiro para que possamos passar um
+        // callback ao painel de cadastro de animal que atualize também o combo
         cadastroConsultaPanel = new CadastroConsultaPanel(consultaService, animalService, this::showListagemConsultasPanel);
-        listagemConsultasPanel = new ListagemConsultasPanel(consultaService);
+        listagemConsultasPanel = new ListagemConsultasPanel(consultaService, animalService);
+
+        // Inicializar painel de Cadastro de Animal. O callback agora também
+        // força atualização do combo de `cadastroConsultaPanel` imediatamente
+        cadastroAnimalPanel = new CadastroAnimalPanel(animalService, () -> {
+            showListagemAnimaisPanel();
+            cadastroConsultaPanel.refreshAnimals();
+        });
         
         // Adicionar painéis ao card layout
         contentPanel.add(cadastroAnimalPanel, "CADASTRO_ANIMAL");
@@ -112,6 +119,8 @@ public class MainWindow extends JFrame {
 
     private void showCadastroConsultaPanel() {
         CardLayout cl = (CardLayout) contentPanel.getLayout();
+        // Recarrega animais antes de mostrar para garantir que novos animais apareçam no combo
+        cadastroConsultaPanel.refreshAnimals();
         cl.show(contentPanel, "CADASTRO_CONSULTA");
     }
 
@@ -125,7 +134,7 @@ public class MainWindow extends JFrame {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception e) {
-            e.printStackTrace();
+            java.util.logging.Logger.getLogger(MainWindow.class.getName()).log(java.util.logging.Level.SEVERE, "Erro ao definir LookAndFeel", e);
         }
         
         SwingUtilities.invokeLater(() -> {

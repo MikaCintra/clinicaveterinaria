@@ -29,4 +29,8 @@ public class ConsultaService {
     public List<Consulta> listarConsultasPorAnimal(int idAnimal) {
         return consultaDAO.listarPorAnimal(idAnimal);
     }
+
+    public boolean atualizarConsulta(Consulta consulta) {
+        return consultaDAO.atualizar(consulta);
+    }
 }

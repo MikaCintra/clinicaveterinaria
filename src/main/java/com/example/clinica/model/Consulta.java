@@ -26,4 +26,8 @@ public class Consulta {
     public int getIdAnimal() { return idAnimal; }
     public LocalDate getData() { return data; }
     public String getDescricao() { return descricao; }
+
+    public void setIdAnimal(int idAnimal) { this.idAnimal = idAnimal; }
+    public void setData(LocalDate data) { this.data = data; }
+    public void setDescricao(String descricao) { this.descricao = descricao; }
 }

@@ -17,8 +17,8 @@ public class ListagemAnimaisPanel extends JPanel {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Modelo da tabela
-        String[] colunas = {"ID", "Nome", "Espécie"};
+    // Modelo da tabela
+    String[] colunas = {"ID", "Nome", "Espécie", "Dono", "Telefone"};
         tableModel = new DefaultTableModel(colunas, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -28,6 +28,12 @@ public class ListagemAnimaisPanel extends JPanel {
         table = new JTable(tableModel);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getColumnModel().getColumn(0).setMaxWidth(50);
+        if (table.getColumnModel().getColumnCount() > 3) {
+            table.getColumnModel().getColumn(1).setMaxWidth(200);
+            table.getColumnModel().getColumn(2).setMaxWidth(120);
+            table.getColumnModel().getColumn(3).setMaxWidth(200);
+            table.getColumnModel().getColumn(4).setMaxWidth(120);
+        }
 
         // Scroll pane para a tabela
         JScrollPane scrollPane = new JScrollPane(table);
@@ -44,9 +50,13 @@ public class ListagemAnimaisPanel extends JPanel {
         
         JButton btnAtualizar = new JButton("Atualizar");
         btnAtualizar.addActionListener(e -> refreshTable());
+        
+    JButton btnEditar = new JButton("Editar");
+    btnEditar.addActionListener(e -> editarAnimalSelecionado());
 
         buttonPanel.add(btnExibir);
         buttonPanel.add(btnExcluir);
+    buttonPanel.add(btnEditar);
         buttonPanel.add(btnAtualizar);
 
         add(buttonPanel, BorderLayout.SOUTH);
@@ -68,10 +78,13 @@ public class ListagemAnimaisPanel extends JPanel {
                     List<Animal> animais = get();
                     tableModel.setRowCount(0);
                     for (Animal animal : animais) {
+                        String telefoneFmt = animal.getTelefone() == null ? "" : com.example.clinica.util.PhoneUtils.format(animal.getTelefone());
                         tableModel.addRow(new Object[]{
                             animal.getId(),
                             animal.getNome(),
-                            animal.getEspecie()
+                            animal.getEspecie(),
+                            animal.getDono(),
+                            telefoneFmt
                         });
                     }
                 } catch (Exception ex) {
@@ -95,25 +108,91 @@ public class ListagemAnimaisPanel extends JPanel {
             return;
         }
 
-        int id = (int) table.getValueAt(row, 0);
-        String nome = (String) table.getValueAt(row, 1);
-        String especie = (String) table.getValueAt(row, 2);
+    int id = (int) table.getValueAt(row, 0);
+    String nome = (String) table.getValueAt(row, 1);
+    String especie = (String) table.getValueAt(row, 2);
+    String dono = table.getValueAt(row, 3) == null ? "" : (String) table.getValueAt(row, 3);
+    String telefone = table.getValueAt(row, 4) == null ? "" : (String) table.getValueAt(row, 4);
 
-        JOptionPane.showMessageDialog(this,
-            String.format("Detalhes do Animal:\nID: %d\nNome: %s\nEspécie: %s",
-                id, nome, especie),
-            "Informações do Animal",
-            JOptionPane.INFORMATION_MESSAGE);
-
-        String mensagem = String.format(
-            "ID: %d\nNome: %s\nEspécie: %s",
-            id, nome, especie
-        );
+    String mensagem = String.format("ID: %d\nNome: %s\nEspécie: %s\nDono: %s\nTelefone: %s", id, nome, especie, dono, telefone);
 
         JOptionPane.showMessageDialog(this,
             mensagem,
             "Detalhes do Animal",
             JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void editarAnimalSelecionado() {
+        int row = table.getSelectedRow();
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this,
+                "Por favor, selecione um animal para editar",
+                "Seleção Necessária",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+    int id = (int) table.getValueAt(row, 0);
+    String nome = (String) table.getValueAt(row, 1);
+    String especie = (String) table.getValueAt(row, 2);
+    String dono = table.getValueAt(row, 3) == null ? "" : (String) table.getValueAt(row, 3);
+    String telefone = table.getValueAt(row, 4) == null ? "" : (String) table.getValueAt(row, 4);
+
+    JTextField nomeField = new JTextField(nome);
+    JComboBox<String> especieBox = new JComboBox<>(new String[] {"Cachorro","Gato","Pássaro","Coelho","Outro"});
+        especieBox.setEditable(true);
+        especieBox.setSelectedItem(especie);
+
+    JTextField donoField = new JTextField(dono);
+    JTextField telefoneField = new JTextField(telefone);
+
+    JPanel panel = new JPanel(new GridLayout(0,1,5,5));
+    panel.add(new JLabel("Nome:"));
+    panel.add(nomeField);
+    panel.add(new JLabel("Espécie:"));
+    panel.add(especieBox);
+    panel.add(new JLabel("Nome do dono:"));
+    panel.add(donoField);
+    panel.add(new JLabel("Telefone de contato:"));
+    panel.add(telefoneField);
+
+        int option = JOptionPane.showConfirmDialog(this, panel, "Editar Animal", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (option == JOptionPane.OK_OPTION) {
+            String novoNome = nomeField.getText().trim();
+            String novaEspecie = especieBox.getSelectedItem().toString().trim();
+            if (novoNome.isEmpty() || novaEspecie.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Nome e espécie são obrigatórios.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            SwingWorker<Boolean, Void> worker = new SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() {
+                    // Ao salvar, garantimos enviar somente dígitos para persistência
+                    String telDigits = com.example.clinica.util.PhoneUtils.onlyDigits(telefoneField.getText());
+                    Animal a = new Animal(id, novoNome, novaEspecie, donoField.getText().trim(), telDigits);
+                return animalService.atualizarAnimal(a);
+            }
+
+                @Override
+                protected void done() {
+                    setCursor(Cursor.getDefaultCursor());
+                    try {
+                        boolean ok = get();
+                        if (ok) {
+                            JOptionPane.showMessageDialog(ListagemAnimaisPanel.this, "Animal atualizado com sucesso.", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                            refreshTable();
+                        } else {
+                            JOptionPane.showMessageDialog(ListagemAnimaisPanel.this, "Não foi possível atualizar o animal.", "Erro", JOptionPane.ERROR_MESSAGE);
+                        }
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(ListagemAnimaisPanel.this, "Erro ao atualizar: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            };
+            worker.execute();
+        }
     }
 
     private void excluirAnimalSelecionado() {

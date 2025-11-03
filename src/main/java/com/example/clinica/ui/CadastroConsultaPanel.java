@@ -14,7 +14,10 @@ public class CadastroConsultaPanel extends JPanel {
     private final AnimalService animalService;
     private final JComboBox<AnimalItem> comboAnimal;
     private final JTextArea txtDescricao;
+    private final JTextField txtData;
     private final Runnable onSaveCallback;
+    private final JButton btnSalvar;
+    private Consulta editingConsulta = null;
 
     public CadastroConsultaPanel(ConsultaService consultaService, AnimalService animalService, Runnable onSaveCallback) {
         this.consultaService = consultaService;
@@ -37,7 +40,7 @@ public class CadastroConsultaPanel extends JPanel {
 
         gbc.gridx = 1;
         gbc.weightx = 1.0;
-        comboAnimal = new JComboBox<>();
+    comboAnimal = new JComboBox<>();
         formPanel.add(comboAnimal, gbc);
 
         // Campo Descrição
@@ -46,15 +49,28 @@ public class CadastroConsultaPanel extends JPanel {
         gbc.weightx = 0;
         formPanel.add(new JLabel("Descrição:"), gbc);
 
-        gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.BOTH;
-        gbc.weighty = 1.0;
-        txtDescricao = new JTextArea(5, 20);
+    gbc.gridx = 1;
+    gbc.weightx = 1.0;
+    gbc.fill = GridBagConstraints.BOTH;
+    gbc.weighty = 1.0;
+    txtDescricao = new JTextArea(5, 20);
         txtDescricao.setLineWrap(true);
         txtDescricao.setWrapStyleWord(true);
         JScrollPane scrollPane = new JScrollPane(txtDescricao);
         formPanel.add(scrollPane, gbc);
+
+    // Campo Data
+    gbc.gridx = 0;
+    gbc.gridy = 2;
+    gbc.weightx = 0;
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    formPanel.add(new JLabel("Data (dd/MM/yyyy):"), gbc);
+
+    gbc.gridx = 1;
+    gbc.weightx = 1.0;
+    txtData = new JTextField(10);
+    txtData.setToolTipText("Formato: dd/MM/yyyy");
+    formPanel.add(txtData, gbc);
 
         // Botão Salvar
         gbc.gridx = 0;
@@ -63,9 +79,9 @@ public class CadastroConsultaPanel extends JPanel {
         gbc.weighty = 0;
         gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = GridBagConstraints.CENTER;
-        JButton btnSalvar = new JButton("Salvar");
-        btnSalvar.addActionListener(e -> salvarConsulta());
-        formPanel.add(btnSalvar, gbc);
+    btnSalvar = new JButton("Salvar");
+    btnSalvar.addActionListener(e -> salvarConsulta());
+    formPanel.add(btnSalvar, gbc);
 
         // Adiciona o formulário ao centro
         add(formPanel, BorderLayout.CENTER);
@@ -112,6 +128,24 @@ public class CadastroConsultaPanel extends JPanel {
         }
 
         String descricao = txtDescricao.getText().trim();
+        String dataStr = txtData.getText().trim();
+        LocalDate data;
+        try {
+            if (dataStr.isEmpty()) {
+                data = LocalDate.now();
+            } else {
+                String[] parts = dataStr.split("/\\s*");
+                if (parts.length != 3) throw new IllegalArgumentException("Formato de data inválido");
+                int d = Integer.parseInt(parts[0]);
+                int m = Integer.parseInt(parts[1]);
+                int y = Integer.parseInt(parts[2]);
+                data = LocalDate.of(y, m, d);
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Data inválida. Use dd/MM/yyyy", "Erro", JOptionPane.WARNING_MESSAGE);
+            txtData.requestFocus();
+            return;
+        }
         if (descricao.isEmpty()) {
             JOptionPane.showMessageDialog(this,
                 "Por favor, informe a descrição da consulta",
@@ -122,31 +156,40 @@ public class CadastroConsultaPanel extends JPanel {
         }
 
         setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+        SwingWorker<Boolean, Void> worker = new SwingWorker<Boolean, Void>() {
             @Override
-            protected Void doInBackground() {
-                consultaService.cadastrarConsulta(animalItem.animal.getId(), descricao);
-                return null;
+            protected Boolean doInBackground() {
+                if (editingConsulta == null) {
+                    consultaService.cadastrarConsulta(animalItem.animal.getId(), descricao);
+                    return true;
+                } else {
+                    editingConsulta.setIdAnimal(animalItem.animal.getId());
+                    editingConsulta.setDescricao(descricao);
+                    editingConsulta.setData(data);
+                    return consultaService.atualizarConsulta(editingConsulta);
+                }
             }
 
             @Override
             protected void done() {
                 setCursor(Cursor.getDefaultCursor());
                 try {
-                    get(); // Verifica se houve exceção
-                    JOptionPane.showMessageDialog(CadastroConsultaPanel.this,
-                        "Consulta registrada com sucesso!",
-                        "Sucesso",
-                        JOptionPane.INFORMATION_MESSAGE);
-                    txtDescricao.setText("");
-                    if (onSaveCallback != null) {
-                        onSaveCallback.run();
+                    boolean ok = get();
+                    if (ok) {
+                        String msg = (editingConsulta == null) ? "Consulta registrada com sucesso!" : "Consulta atualizada com sucesso!";
+                        JOptionPane.showMessageDialog(CadastroConsultaPanel.this, msg, "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                        txtDescricao.setText("");
+                        txtData.setText("");
+                        editingConsulta = null;
+                        btnSalvar.setText("Salvar");
+                        if (onSaveCallback != null) {
+                            onSaveCallback.run();
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(CadastroConsultaPanel.this, "Não foi possível salvar/atualizar a consulta.", "Erro", JOptionPane.ERROR_MESSAGE);
                     }
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(CadastroConsultaPanel.this,
-                        "Erro ao salvar consulta: " + ex.getMessage(),
-                        "Erro",
-                        JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(CadastroConsultaPanel.this, "Erro ao salvar consulta: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
                 }
             }
         };
@@ -165,5 +208,28 @@ public class CadastroConsultaPanel extends JPanel {
         public String toString() {
             return String.format("%d - %s (%s)", animal.getId(), animal.getNome(), animal.getEspecie());
         }
+    }
+
+    public void loadConsulta(Consulta c) {
+        if (c == null) return;
+        this.editingConsulta = c;
+        // selecionar animal
+        for (int i = 0; i < comboAnimal.getItemCount(); i++) {
+            AnimalItem it = comboAnimal.getItemAt(i);
+            if (it.animal.getId() == c.getIdAnimal()) {
+                comboAnimal.setSelectedIndex(i);
+                break;
+            }
+        }
+        txtDescricao.setText(c.getDescricao());
+        txtData.setText(String.format("%02d/%02d/%04d", c.getData().getDayOfMonth(), c.getData().getMonthValue(), c.getData().getYear()));
+        btnSalvar.setText("Atualizar");
+    }
+
+    /**
+     * Recarrega a lista de animais no combo. Público para que outras telas possam forçar atualização.
+     */
+    public void refreshAnimals() {
+        carregarAnimais();
     }
 }

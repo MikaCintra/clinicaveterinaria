@@ -36,4 +36,8 @@ public class AnimalService {
     public boolean excluirAnimal(int id) {
         return animalDAO.deletarPorId(id);
     }
+
+    public boolean atualizarAnimal(Animal animal) {
+        return animalDAO.atualizar(animal);
+    }
 }

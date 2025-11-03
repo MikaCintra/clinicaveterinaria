@@ -38,6 +38,14 @@ public class ConnectionFactory {
                     "especie VARCHAR(100) NOT NULL);"
                 );
 
+                // Ensure owner name and phone columns exist (safe migration)
+                connection.createStatement().executeUpdate(
+                    "ALTER TABLE Animal ADD COLUMN IF NOT EXISTS dono VARCHAR(255);"
+                );
+                connection.createStatement().executeUpdate(
+                    "ALTER TABLE Animal ADD COLUMN IF NOT EXISTS telefone VARCHAR(255);"
+                );
+
                 connection.createStatement().executeUpdate(
                     "CREATE TABLE IF NOT EXISTS Consulta (" +
                     "id IDENTITY PRIMARY KEY, " +
