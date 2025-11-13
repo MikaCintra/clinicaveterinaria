@@ -4,7 +4,6 @@ import com.example.clinica.service.AnimalService;
 import com.example.clinica.service.ConsultaService;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.*;
 
 public class MainWindow extends JFrame {
     private final AnimalService animalService;

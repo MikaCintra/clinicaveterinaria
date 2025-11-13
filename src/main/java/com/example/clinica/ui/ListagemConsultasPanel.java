@@ -280,7 +280,6 @@ public class ListagemConsultasPanel extends JPanel {
         }
     }
 
-    // helper item for animal combo
     private static class AnimalItem {
         final Animal animal;
         AnimalItem(Animal a) { this.animal = a; }

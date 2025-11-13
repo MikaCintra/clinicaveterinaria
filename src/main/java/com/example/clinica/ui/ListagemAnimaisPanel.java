@@ -42,6 +42,9 @@ public class ListagemAnimaisPanel extends JPanel {
         // Painel de botões
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         
+        JButton btnBuscar = new JButton("Buscar por ID");
+        btnBuscar.addActionListener(e -> buscarPorId());
+        
         JButton btnExibir = new JButton("Exibir");
         btnExibir.addActionListener(e -> exibirAnimalSelecionado());
         
@@ -54,6 +57,7 @@ public class ListagemAnimaisPanel extends JPanel {
     JButton btnEditar = new JButton("Editar");
     btnEditar.addActionListener(e -> editarAnimalSelecionado());
 
+        buttonPanel.add(btnBuscar);
         buttonPanel.add(btnExibir);
         buttonPanel.add(btnExcluir);
     buttonPanel.add(btnEditar);
@@ -246,6 +250,71 @@ public class ListagemAnimaisPanel extends JPanel {
                 }
             };
             worker.execute();
+        }
+    }
+
+    private void buscarPorId() {
+        String input = JOptionPane.showInputDialog(this, 
+            "Digite o ID do animal:", 
+            "Buscar Animal", 
+            JOptionPane.QUESTION_MESSAGE);
+        
+        if (input == null || input.trim().isEmpty()) {
+            return;
+        }
+        
+        try {
+            int id = Integer.parseInt(input.trim());
+            
+            SwingWorker<Animal, Void> worker = new SwingWorker<Animal, Void>() {
+                @Override
+                protected Animal doInBackground() {
+                    return animalService.buscarPorId(id);
+                }
+                
+                @Override
+                protected void done() {
+                    try {
+                        Animal animal = get();
+                        
+                        if (animal == null) {
+                            JOptionPane.showMessageDialog(ListagemAnimaisPanel.this,
+                                "Animal não encontrado com ID: " + id,
+                                "Não encontrado",
+                                JOptionPane.WARNING_MESSAGE);
+                        } else {
+                            String telefone = animal.getTelefone() == null ? "" 
+                                : com.example.clinica.util.PhoneUtils.format(animal.getTelefone());
+                            
+                            String mensagem = String.format(
+                                "ID: %d\nNome: %s\nEspécie: %s\nDono: %s\nTelefone: %s",
+                                animal.getId(),
+                                animal.getNome(),
+                                animal.getEspecie(),
+                                animal.getDono(),
+                                telefone
+                            );
+                            
+                            JOptionPane.showMessageDialog(ListagemAnimaisPanel.this,
+                                mensagem,
+                                "Animal Encontrado",
+                                JOptionPane.INFORMATION_MESSAGE);
+                        }
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(ListagemAnimaisPanel.this,
+                            "Erro ao buscar animal: " + ex.getMessage(),
+                            "Erro",
+                            JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            };
+            worker.execute();
+            
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this,
+                "ID inválido. Digite apenas números.",
+                "Erro de Validação",
+                JOptionPane.ERROR_MESSAGE);
         }
     }
 }

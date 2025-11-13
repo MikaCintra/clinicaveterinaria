@@ -16,6 +16,10 @@ public class AnimalService {
         return animalDAO.listar();
     }
 
+    public Animal buscarPorId(int id) {
+        return animalDAO.buscarPorId(id);
+    }
+
     public boolean excluirAnimal(int id) {
         return animalDAO.deletarPorId(id);
     }
